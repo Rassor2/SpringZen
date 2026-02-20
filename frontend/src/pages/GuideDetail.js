@@ -27,9 +27,12 @@ const GuideDetail = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({});
 
-  useEffect(() => {
-    fetchGuide();
-  }, [id]);
+useEffect(() => {
+  const run = async () => {
+    await fetchGuide();
+  };
+  run();
+}, [fetchGuide]);
 
   const fetchGuide = async () => {
     try {

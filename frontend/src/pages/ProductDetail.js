@@ -26,9 +26,13 @@ const ProductDetail = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({});
 
-  useEffect(() => {
-    fetchProduct();
-  }, [id]);
+useEffect(() => {
+  const run = async () => {
+    await fetchProduct();
+  };
+  run();
+}, [fetchProduct]);
+
 
   const fetchProduct = async () => {
     try {
