@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useParams, Link } from 'react-router-dom';
-import { Loader2, ArrowLeft, ExternalLink, ThumbsUp, ThumbsDown, Edit } from 'lucide-react';
+import { Loader2, ArrowLeft, ExternalLink, ThumbsUp, ThumbsDown, Edit, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
   Dialog,
@@ -59,42 +59,42 @@ const ProductDetail = () => {
     setEditForm({ ...editForm, [e.target.name]: e.target.value });
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-emerald-600" size={40} /></div>;
-  if (!product) return <div className="min-h-screen flex items-center justify-center">Product not found.</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-stone-50"><Loader2 className="animate-spin text-emerald-600" size={40} /></div>;
+  if (!product) return <div className="min-h-screen flex items-center justify-center bg-stone-50">Product not found.</div>;
 
   return (
-    <div className="bg-stone-50 min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+    <div className="bg-gradient-to-br from-emerald-50/50 to-stone-50 min-h-screen py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        <Link to="/shop" className="inline-flex items-center text-stone-500 hover:text-emerald-600 mb-8 transition-colors">
-            <ArrowLeft size={16} className="mr-2" /> Back to Shop
+        <Link to="/shop" className="inline-flex items-center text-stone-500 hover:text-emerald-600 mb-8 transition-colors group">
+            <ArrowLeft size={16} className="mr-2 group-hover:-translate-x-1 transition-transform" /> Back to Shop
         </Link>
 
-        <div className="grid md:grid-cols-2 gap-12 bg-white rounded-3xl p-8 shadow-sm border border-stone-100">
+        <div className="grid md:grid-cols-2 gap-12 bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-white/50 ring-1 ring-stone-900/5">
             {/* Image Section */}
-            <div className="relative aspect-square rounded-2xl overflow-hidden bg-stone-100">
+            <div className="relative aspect-square rounded-2xl overflow-hidden bg-stone-100 shadow-inner group">
                 <img 
                     src={product.image_url} 
                     alt={product.name} 
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                 />
                  {product.brand && (
-                    <div className="absolute top-4 left-4 bg-white/90 backdrop-blur shadow-sm px-4 py-1 rounded-full text-sm font-bold text-stone-800">
-                        {product.brand}
+                    <div className="absolute top-4 left-4 bg-white/90 backdrop-blur shadow-sm px-4 py-1.5 rounded-full text-sm font-bold text-stone-800 flex items-center gap-1">
+                        <ShieldCheck size={14} className="text-emerald-500" /> {product.brand}
                     </div>
                 )}
             </div>
 
             {/* Details Section */}
             <div className="flex flex-col justify-center">
-                <div className="flex justify-between items-start mb-4">
-                    <span className="text-sm font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full uppercase tracking-wider">
+                <div className="flex justify-between items-start mb-6">
+                    <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full uppercase tracking-wider border border-emerald-100">
                         {product.category}
                     </span>
-                    {user && (
+                    {user?.role === 'admin' && (
                         <Dialog open={isEditing} onOpenChange={setIsEditing}>
                             <DialogTrigger asChild>
-                                <button className="p-2 text-stone-400 hover:text-stone-800 hover:bg-stone-100 rounded-full transition-colors" title="Edit Product">
-                                    <Edit size={18} />
+                                <button className="p-2 text-stone-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition-colors" title="Edit Product">
+                                    <Edit size={20} />
                                 </button>
                             </DialogTrigger>
                             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -138,41 +138,41 @@ const ProductDetail = () => {
                     )}
                 </div>
 
-                <h1 className="text-4xl font-serif font-bold text-stone-900 mb-2 leading-tight">
+                <h1 className="text-4xl lg:text-5xl font-serif font-bold text-stone-900 mb-4 leading-tight">
                     {product.name}
                 </h1>
-                <div className="text-2xl font-bold text-stone-500 mb-6">{product.price_range}</div>
+                <div className="text-3xl font-bold text-stone-400 mb-8 font-serif">{product.price_range}</div>
 
-                <p className="text-lg text-stone-600 mb-8 leading-relaxed">
+                <p className="text-lg text-stone-600 mb-10 leading-relaxed">
                     {product.long_description || product.description}
                 </p>
 
                 {/* Pros & Cons */}
                 {(product.pros?.length > 0 || product.cons?.length > 0) && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-10">
                         {product.pros?.length > 0 && (
-                            <div className="bg-emerald-50/50 p-5 rounded-xl border border-emerald-100">
-                                <h3 className="font-bold text-emerald-800 mb-3 flex items-center gap-2">
+                            <div className="bg-emerald-50/50 p-6 rounded-2xl border border-emerald-100/50 shadow-sm">
+                                <h3 className="font-bold text-emerald-800 mb-4 flex items-center gap-2 text-sm uppercase tracking-wide">
                                     <ThumbsUp size={16} /> Why we love it
                                 </h3>
-                                <ul className="space-y-2">
+                                <ul className="space-y-3">
                                     {product.pros.map((pro, i) => (
-                                        <li key={i} className="text-sm text-stone-700 flex items-start gap-2">
-                                            <span className="text-emerald-500 mt-1">•</span> {pro}
+                                        <li key={i} className="text-sm text-stone-700 flex items-start gap-2 leading-snug">
+                                            <span className="text-emerald-500 mt-0.5">•</span> {pro}
                                         </li>
                                     ))}
                                 </ul>
                             </div>
                         )}
                          {product.cons?.length > 0 && (
-                            <div className="bg-stone-50 p-5 rounded-xl border border-stone-200">
-                                <h3 className="font-bold text-stone-600 mb-3 flex items-center gap-2">
+                            <div className="bg-stone-50 p-6 rounded-2xl border border-stone-200/50 shadow-sm">
+                                <h3 className="font-bold text-stone-500 mb-4 flex items-center gap-2 text-sm uppercase tracking-wide">
                                     <ThumbsDown size={16} /> Considerations
                                 </h3>
-                                <ul className="space-y-2">
+                                <ul className="space-y-3">
                                     {product.cons.map((con, i) => (
-                                        <li key={i} className="text-sm text-stone-600 flex items-start gap-2">
-                                            <span className="text-stone-400 mt-1">•</span> {con}
+                                        <li key={i} className="text-sm text-stone-600 flex items-start gap-2 leading-snug">
+                                            <span className="text-stone-400 mt-0.5">•</span> {con}
                                         </li>
                                     ))}
                                 </ul>
@@ -185,9 +185,9 @@ const ProductDetail = () => {
                     href={product.affiliate_link}
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 bg-stone-900 text-white rounded-xl font-bold hover:bg-emerald-600 transition-all shadow-lg hover:shadow-xl hover:-translate-y-1"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-5 bg-stone-900 text-white rounded-2xl font-bold text-lg hover:bg-emerald-600 transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1 group"
                 >
-                    View on Amazon <ExternalLink size={18} className="opacity-70" />
+                    View on Amazon <ExternalLink size={18} className="opacity-70 group-hover:rotate-45 transition-transform" />
                 </a>
             </div>
         </div>

@@ -12,7 +12,7 @@ import {
   DialogFooter
 } from "@/components/ui/dialog"
 import { toast } from 'sonner';
-import ReactMarkdown from 'react-markdown'; // Assuming markdown content, if not plain text is fine
+import Markdown from 'react-markdown';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -60,17 +60,17 @@ const GuideDetail = () => {
     setEditForm({ ...editForm, [e.target.name]: e.target.value });
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-emerald-600" size={40} /></div>;
-  if (!guide) return <div className="min-h-screen flex items-center justify-center">Article not found.</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-stone-50"><Loader2 className="animate-spin text-emerald-600" size={40} /></div>;
+  if (!guide) return <div className="min-h-screen flex items-center justify-center bg-stone-50">Article not found.</div>;
 
   return (
-    <div className="bg-stone-50 min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+    <div className="bg-gradient-to-br from-emerald-50/50 to-stone-50 min-h-screen py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
-        <Link to="/guides" className="inline-flex items-center text-stone-500 hover:text-emerald-600 mb-8 transition-colors">
-            <ArrowLeft size={16} className="mr-2" /> Back to Guides
+        <Link to="/guides" className="inline-flex items-center text-stone-500 hover:text-emerald-600 mb-8 transition-colors group">
+            <ArrowLeft size={16} className="mr-2 group-hover:-translate-x-1 transition-transform" /> Back to Guides
         </Link>
 
-        <article className="bg-white rounded-3xl overflow-hidden shadow-sm border border-stone-100">
+        <article className="bg-white/80 backdrop-blur-sm rounded-3xl overflow-hidden shadow-xl border border-white/50 ring-1 ring-stone-900/5 transition-all">
             {/* Header Image */}
             <div className="relative aspect-video w-full bg-stone-100">
                 <img 
@@ -78,20 +78,20 @@ const GuideDetail = () => {
                     alt={guide.title} 
                     className="w-full h-full object-cover"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
                 <div className="absolute bottom-0 left-0 p-8 md:p-12 w-full text-white">
-                     <div className="flex items-center gap-4 text-emerald-200 text-sm font-bold uppercase tracking-wider mb-4">
-                        <span className="bg-emerald-600/20 backdrop-blur px-3 py-1 rounded-full border border-emerald-500/30 flex items-center gap-2">
+                     <div className="flex items-center gap-4 text-emerald-200 text-sm font-bold uppercase tracking-wider mb-4 animate-fade-in">
+                        <span className="bg-emerald-600/30 backdrop-blur-md px-3 py-1 rounded-full border border-emerald-400/30 flex items-center gap-2 shadow-sm">
                              <Tag size={12} /> {guide.category}
                         </span>
                         <span className="flex items-center gap-2">
                             <Calendar size={14} /> {new Date(guide.published_date).toLocaleDateString()}
                         </span>
                     </div>
-                    <h1 className="text-3xl md:text-5xl font-serif font-bold mb-4 leading-tight">
+                    <h1 className="text-3xl md:text-5xl font-serif font-bold mb-4 leading-tight drop-shadow-md">
                         {guide.title}
                     </h1>
-                    <p className="text-xl md:text-2xl text-stone-200 font-light max-w-2xl">
+                    <p className="text-xl md:text-2xl text-stone-200 font-light max-w-2xl drop-shadow-sm">
                         {guide.subtitle}
                     </p>
                 </div>
@@ -99,21 +99,21 @@ const GuideDetail = () => {
 
             {/* Content Body */}
             <div className="p-8 md:p-12">
-                 <div className="flex justify-between items-start mb-8 pb-8 border-b border-stone-100">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 font-bold">
+                 <div className="flex justify-between items-start mb-10 pb-8 border-b border-stone-100">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-full flex items-center justify-center text-emerald-700 font-bold shadow-inner ring-2 ring-white">
                             {guide.author.charAt(0)}
                         </div>
                         <div>
-                            <div className="font-bold text-stone-800">{guide.author}</div>
-                            <div className="text-xs text-stone-500">Editor • SpringZen</div>
+                            <div className="font-bold text-stone-800 text-lg">{guide.author}</div>
+                            <div className="text-sm text-stone-500 font-medium">Editor • SpringZen</div>
                         </div>
                     </div>
                     
-                    {user && (
+                    {user?.role === 'admin' && (
                         <Dialog open={isEditing} onOpenChange={setIsEditing}>
                             <DialogTrigger asChild>
-                                <button className="flex items-center gap-2 px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-600 rounded-full font-medium transition-colors text-sm">
+                                <button className="flex items-center gap-2 px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-600 rounded-full font-medium transition-colors text-sm shadow-sm hover:shadow">
                                     <Edit size={16} /> Edit Article
                                 </button>
                             </DialogTrigger>
@@ -154,11 +154,8 @@ const GuideDetail = () => {
                     )}
                 </div>
 
-                <div className="prose prose-lg prose-stone max-w-none prose-headings:font-serif prose-headings:font-bold prose-a:text-emerald-600 prose-img:rounded-xl">
-                    {/* Render content safely. Assuming markdown. If plain text, simple whitespace-pre-wrap works too */}
-                    <div className="whitespace-pre-wrap leading-relaxed font-serif text-stone-700">
-                        {guide.content}
-                    </div>
+                <div className="prose prose-lg prose-stone max-w-none prose-headings:font-serif prose-headings:font-bold prose-a:text-emerald-600 prose-img:rounded-2xl prose-img:shadow-lg prose-p:leading-relaxed">
+                    <Markdown>{guide.content}</Markdown>
                 </div>
             </div>
         </article>
