@@ -103,6 +103,11 @@ class Statistic(BaseModel):
     year: str
     description: Optional[str] = None
 
+class Subscriber(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    email: EmailStr
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 # --- Dependencies ---
 
@@ -253,6 +258,39 @@ async def update_guide(guide_id: str, payload: dict, user: User = Depends(get_cu
         
     updated_doc = await db.guides.find_one({"id": guide_id}, {"_id": 0})
     return updated_doc
+
+# --- Newsletter Routes ---
+
+@api_router.post("/subscribe")
+async def subscribe(payload: dict):
+    email = payload.get("email")
+    if not email:
+        raise HTTPException(status_code=400, detail="Missing email")
+    
+    # Check if already subscribed
+    existing = await db.subscribers.find_one({"email": email})
+    if existing:
+        return {"message": "Already subscribed"}
+        
+    new_sub = Subscriber(email=email)
+    await db.subscribers.insert_one(new_sub.model_dump())
+    return {"message": "Subscribed successfully"}
+
+@api_router.get("/admin/subscribers")
+async def get_subscribers(user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    
+    subs = await db.subscribers.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return subs
+
+@api_router.delete("/admin/subscribers/{sub_id}")
+async def delete_subscriber(sub_id: str, user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+        
+    await db.subscribers.delete_one({"id": sub_id})
+    return {"message": "Deleted"}
 
 # --- Content Routes ---
 
