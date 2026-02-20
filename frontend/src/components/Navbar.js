@@ -1,11 +1,23 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Leaf, CheckSquare, ShoppingBag, BookOpen, Menu, X } from 'lucide-react';
+import { Leaf, CheckSquare, ShoppingBag, BookOpen, Menu, X, LogIn, LogOut, User } from 'lucide-react';
 import { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
+  const { user, login, logout } = useAuth();
 
   const navLinks = [
     { name: 'Home', path: '/', icon: <Leaf size={18} /> },
@@ -45,9 +57,45 @@ const Navbar = () => {
                 {link.name}
               </Link>
             ))}
-            <button className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-full text-sm font-medium transition-colors">
-              Get Started
-            </button>
+            
+            {user ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="focus:outline-none">
+                    <Avatar className="h-9 w-9 border-2 border-emerald-100 cursor-pointer hover:border-emerald-300 transition-colors">
+                      <AvatarImage src={user.picture} />
+                      <AvatarFallback className="bg-emerald-100 text-emerald-700 font-bold">
+                        {user.name.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56 bg-white border border-stone-100 shadow-lg rounded-xl p-2">
+                    <DropdownMenuLabel className="font-normal">
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium leading-none">{user.name}</p>
+                        <p className="text-xs leading-none text-muted-foreground text-stone-500">
+                          {user.email}
+                        </p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator className="bg-stone-100 my-1" />
+                    <DropdownMenuItem 
+                        onClick={logout}
+                        className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer rounded-lg px-2 py-2 flex items-center gap-2"
+                    >
+                      <LogOut size={16} />
+                      <span>Log out</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+            ) : (
+                <button 
+                    onClick={login}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-2 shadow-sm hover:shadow"
+                >
+                  <LogIn size={16} />
+                  Login
+                </button>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -64,14 +112,29 @@ const Navbar = () => {
 
       {/* Mobile Menu */}
       {isOpen && (
-        <div className="md:hidden bg-white border-b border-stone-100">
-          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+        <div className="md:hidden bg-white border-b border-stone-100 shadow-lg">
+          <div className="px-4 pt-4 pb-6 space-y-2">
+             {user && (
+                <div className="flex items-center gap-3 px-3 py-3 mb-4 bg-stone-50 rounded-xl">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={user.picture} />
+                      <AvatarFallback className="bg-emerald-100 text-emerald-700 font-bold">
+                        {user.name.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col">
+                        <span className="font-medium text-stone-800">{user.name}</span>
+                        <span className="text-xs text-stone-500">{user.email}</span>
+                    </div>
+                </div>
+            )}
+
             {navLinks.map((link) => (
               <Link
                 key={link.name}
                 to={link.path}
                 onClick={() => setIsOpen(false)}
-                className={`flex items-center gap-3 px-3 py-3 rounded-md text-base font-medium ${
+                className={`flex items-center gap-3 px-3 py-3 rounded-lg text-base font-medium transition-colors ${
                   isActive(link.path)
                     ? 'text-emerald-700 bg-emerald-50'
                     : 'text-stone-600 hover:text-emerald-600 hover:bg-stone-50'
@@ -81,6 +144,26 @@ const Navbar = () => {
                 {link.name}
               </Link>
             ))}
+
+             <div className="pt-4 mt-4 border-t border-stone-100">
+                {user ? (
+                    <button 
+                        onClick={() => { logout(); setIsOpen(false); }}
+                        className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-base font-medium text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                        <LogOut size={18} />
+                        Log out
+                    </button>
+                ) : (
+                    <button 
+                        onClick={() => { login(); setIsOpen(false); }}
+                        className="w-full flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-base font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm"
+                    >
+                        <LogIn size={18} />
+                        Login / Sign up
+                    </button>
+                )}
+             </div>
           </div>
         </div>
       )}
