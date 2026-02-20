@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Leaf, CheckSquare, ShoppingBag, BookOpen, Menu, X, LogIn, LogOut, User } from 'lucide-react';
+import { Leaf, CheckSquare, ShoppingBag, BookOpen, Menu, X, LogIn, LogOut, Search, TrendingUp, Book } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -24,6 +24,8 @@ const Navbar = () => {
     { name: 'Planner', path: '/planner', icon: <CheckSquare size={18} /> },
     { name: 'Shop', path: '/shop', icon: <ShoppingBag size={18} /> },
     { name: 'Guides', path: '/guides', icon: <BookOpen size={18} /> },
+    { name: 'Trends', path: '/trends', icon: <TrendingUp size={18} /> },
+    { name: 'Glossary', path: '/glossary', icon: <Book size={18} /> },
   ];
 
   const isActive = (path) => location.pathname === path;
@@ -42,7 +44,7 @@ const Navbar = () => {
           </div>
 
           {/* Desktop Menu */}
-          <div className="hidden md:flex md:items-center md:space-x-8">
+          <div className="hidden lg:flex lg:items-center lg:space-x-6">
             {navLinks.map((link) => (
               <Link
                 key={link.name}
@@ -99,7 +101,7 @@ const Navbar = () => {
           </div>
 
           {/* Mobile menu button */}
-          <div className="flex items-center md:hidden">
+          <div className="flex items-center lg:hidden">
             <button
               onClick={() => setIsOpen(!isOpen)}
               className="inline-flex items-center justify-center p-2 rounded-md text-stone-600 hover:text-emerald-600 hover:bg-stone-50 focus:outline-none"
@@ -112,7 +114,7 @@ const Navbar = () => {
 
       {/* Mobile Menu */}
       {isOpen && (
-        <div className="md:hidden bg-white border-b border-stone-100 shadow-lg">
+        <div className="lg:hidden bg-white border-b border-stone-100 shadow-lg absolute w-full z-50">
           <div className="px-4 pt-4 pb-6 space-y-2">
              {user && (
                 <div className="flex items-center gap-3 px-3 py-3 mb-4 bg-stone-50 rounded-xl">

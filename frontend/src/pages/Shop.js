@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Loader2, ExternalLink, ShoppingBag } from 'lucide-react';
+import { Loader2, ExternalLink, ShoppingBag, ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -44,7 +45,7 @@ const Shop = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {products.map(product => (
                 <div key={product.id} className="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border border-stone-100 flex flex-col group">
-                    <div className="relative aspect-[4/3] overflow-hidden bg-stone-100">
+                    <Link to={`/products/${product.id}`} className="block relative aspect-[4/3] overflow-hidden bg-stone-100 cursor-pointer">
                         <img 
                             src={product.image_url || "https://placehold.co/600x400?text=Product"} 
                             alt={product.name}
@@ -58,29 +59,38 @@ const Shop = () => {
                                 {product.brand}
                             </div>
                         )}
-                    </div>
+                    </Link>
                     <div className="p-6 flex flex-col flex-grow">
                         <div className="flex items-center gap-2 mb-3">
                             <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded uppercase tracking-wider">
                                 {product.category}
                             </span>
                         </div>
-                        <h3 className="text-xl font-bold text-stone-800 mb-3 leading-tight group-hover:text-emerald-700 transition-colors">
-                            {product.name}
-                        </h3>
-                        <p className="text-stone-600 mb-6 flex-grow text-sm leading-relaxed">
+                        <Link to={`/products/${product.id}`}>
+                            <h3 className="text-xl font-bold text-stone-800 mb-3 leading-tight group-hover:text-emerald-700 transition-colors">
+                                {product.name}
+                            </h3>
+                        </Link>
+                        <p className="text-stone-600 mb-6 flex-grow text-sm leading-relaxed line-clamp-3">
                             {product.description}
                         </p>
-                        <a 
-                            href={product.affiliate_link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="w-full inline-flex items-center justify-center gap-2 px-6 py-4 bg-stone-900 text-white rounded-xl font-bold hover:bg-emerald-600 transition-all shadow-sm hover:shadow-lg group-hover:translate-y-[-2px]"
-                        >
-                            <ShoppingBag size={18} />
-                            Buy on Amazon
-                            <ExternalLink size={14} className="opacity-70" />
-                        </a>
+                        
+                        <div className="grid grid-cols-2 gap-3 mt-auto">
+                            <Link 
+                                to={`/products/${product.id}`}
+                                className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-stone-100 text-stone-700 rounded-xl font-bold hover:bg-stone-200 transition-colors"
+                            >
+                                Details
+                            </Link>
+                            <a 
+                                href={product.affiliate_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-stone-900 text-white rounded-xl font-bold hover:bg-emerald-600 transition-colors shadow-sm"
+                            >
+                                Buy <ExternalLink size={14} className="opacity-70" />
+                            </a>
+                        </div>
                     </div>
                 </div>
             ))}

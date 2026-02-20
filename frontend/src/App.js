@@ -4,7 +4,11 @@ import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import Planner from "./pages/Planner";
 import Shop from "./pages/Shop";
+import ProductDetail from "./pages/ProductDetail";
 import Guides from "./pages/Guides";
+import GuideDetail from "./pages/GuideDetail";
+import Glossary from "./pages/Glossary";
+import Trends from "./pages/Trends";
 import { AuthProvider } from "./context/AuthContext";
 import "@/App.css";
 
@@ -20,7 +24,11 @@ function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/planner" element={<Planner />} />
                 <Route path="/shop" element={<Shop />} />
+                <Route path="/products/:id" element={<ProductDetail />} />
                 <Route path="/guides" element={<Guides />} />
+                <Route path="/guides/:id" element={<GuideDetail />} />
+                <Route path="/glossary" element={<Glossary />} />
+                <Route path="/trends" element={<Trends />} />
                 </Routes>
             </main>
             
@@ -36,6 +44,8 @@ function App() {
                             <li><a href="/planner" className="hover:text-emerald-400 transition-colors">Planner</a></li>
                             <li><a href="/shop" className="hover:text-emerald-400 transition-colors">Shop</a></li>
                             <li><a href="/guides" className="hover:text-emerald-400 transition-colors">Guides</a></li>
+                            <li><a href="/trends" className="hover:text-emerald-400 transition-colors">Trends</a></li>
+                            <li><a href="/glossary" className="hover:text-emerald-400 transition-colors">Glossary</a></li>
                         </ul>
                     </div>
                     <div>
