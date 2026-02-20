@@ -184,9 +184,10 @@ async def auth_callback(request: Request, response: Response):
         )
     else:
         user_id = f"user_{uuid.uuid4().hex[:12]}"
-        role = "admin" if email.endswith("@emergent.sh") else "user" # Auto-admin for emergent users or just make first user admin logic
-        # For simplicity, let's make EVERYONE an admin for this MVP request "possible for me to modify"
-        role = "admin" 
+        
+        # Determine role: First user created is admin, others are users.
+        count = await db.users.count_documents({})
+        role = "admin" if count == 0 else "user" 
         
         new_user = User(user_id=user_id, email=email, name=name, picture=picture, role=role)
         await db.users.insert_one(new_user.model_dump())
@@ -218,8 +219,8 @@ async def logout(response: Response, request: Request):
 
 @api_router.put("/products/{product_id}")
 async def update_product(product_id: str, payload: dict, user: User = Depends(get_current_user)):
-    # In a real app, check user.role == "admin"
-    # For this MVP, any logged in user can edit
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can modify products")
     
     # Remove immutable fields if present
     payload.pop("id", None)
@@ -237,6 +238,9 @@ async def update_product(product_id: str, payload: dict, user: User = Depends(ge
 
 @api_router.put("/guides/{guide_id}")
 async def update_guide(guide_id: str, payload: dict, user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can modify guides")
+
     payload.pop("id", None)
     
     result = await db.guides.update_one(
