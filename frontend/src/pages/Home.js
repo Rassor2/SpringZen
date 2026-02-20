@@ -1,8 +1,32 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, CheckCircle2, Sparkles, ShoppingBag, Star } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Sparkles, ShoppingBag, Star, Loader2 } from 'lucide-react';
+import axios from 'axios';
+import { toast } from 'sonner';
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const API = `${BACKEND_URL}/api`;
 
 const Home = () => {
+  const [email, setEmail] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubscribe = async (e) => {
+    e.preventDefault();
+    if(!email) return;
+    
+    setSubmitting(true);
+    try {
+        await axios.post(`${API}/subscribe`, { email });
+        toast.success("Welcome to the challenge! Check your inbox soon.");
+        setEmail("");
+    } catch (error) {
+        toast.error("Subscription failed. Please try again.");
+    } finally {
+        setSubmitting(false);
+    }
+  };
+
   return (
     <div className="bg-stone-50 min-h-screen">
       {/* Hero Section */}
@@ -120,14 +144,21 @@ const Home = () => {
             <p className="text-stone-300 mb-10 max-w-xl mx-auto text-lg">
                 Sign up for our free email course. One simple task delivered to your inbox every morning for a week.
             </p>
-            <form className="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto" onSubmit={(e) => e.preventDefault()}>
+            <form className="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto" onSubmit={handleSubscribe}>
                 <input 
                     type="email" 
                     placeholder="Enter your email" 
                     className="px-6 py-4 rounded-full bg-stone-800 border border-stone-700 text-white focus:outline-none focus:border-emerald-500 flex-grow shadow-inner"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
                 />
-                <button type="submit" className="px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-full transition-all hover:shadow-lg hover:shadow-emerald-500/20 hover:-translate-y-1">
-                    Join Now
+                <button 
+                    type="submit" 
+                    disabled={submitting}
+                    className="px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-full transition-all hover:shadow-lg hover:shadow-emerald-500/20 hover:-translate-y-1 flex items-center justify-center gap-2"
+                >
+                    {submitting ? <Loader2 className="animate-spin" /> : "Join Now"}
                 </button>
             </form>
         </div>

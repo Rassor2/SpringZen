@@ -1,7 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Leaf, CheckSquare, ShoppingBag, BookOpen, Menu, X, LogIn, LogOut, Search, TrendingUp, Book, ShieldCheck } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Leaf, CheckSquare, ShoppingBag, BookOpen, Menu, X, LogIn, LogOut, Search, TrendingUp, Book, ShieldCheck, Mail } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
   DropdownMenu,
@@ -95,6 +94,7 @@ const Navbar = () => {
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator className="bg-stone-100 my-1" />
                     {user.role === 'admin' && (
+                        <>
                          <DropdownMenuItem 
                             asChild
                             className="cursor-pointer rounded-xl px-2 py-2.5 flex items-center gap-2 mb-1 text-emerald-600 bg-emerald-50"
@@ -104,6 +104,16 @@ const Navbar = () => {
                                 <span>Admin Mode Active</span>
                            </div>
                         </DropdownMenuItem>
+                        <DropdownMenuItem 
+                            asChild
+                            className="cursor-pointer rounded-xl px-2 py-2.5 flex items-center gap-2 mb-1 text-stone-600 hover:bg-stone-50"
+                        >
+                           <Link to="/admin/emails" className="flex items-center gap-2 w-full font-medium">
+                                <Mail size={16} />
+                                <span>Manage Subscribers</span>
+                           </Link>
+                        </DropdownMenuItem>
+                        </>
                     )}
                     <DropdownMenuItem 
                         onClick={logout}
@@ -174,6 +184,17 @@ const Navbar = () => {
                 {link.name}
               </Link>
             ))}
+            
+            {user?.role === 'admin' && (
+                <Link
+                to="/admin/emails"
+                onClick={() => setIsOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl text-base font-bold text-stone-600 hover:bg-stone-50"
+                >
+                    <Mail size={18} />
+                    Manage Subscribers
+                </Link>
+            )}
 
              <div className="pt-4 mt-4 border-t border-stone-100">
                 {user ? (

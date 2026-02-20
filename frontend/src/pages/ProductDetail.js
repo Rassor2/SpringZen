@@ -63,12 +63,13 @@ const ProductDetail = () => {
   if (!product) return <div className="min-h-screen flex items-center justify-center bg-stone-50">Product not found.</div>;
 
   return (
-    <div className="bg-gradient-to-br from-emerald-50/50 to-stone-50 min-h-screen py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        <Link to="/shop" className="inline-flex items-center text-stone-500 hover:text-emerald-600 mb-8 transition-colors group">
-            <ArrowLeft size={16} className="mr-2 group-hover:-translate-x-1 transition-transform" /> Back to Shop
-        </Link>
+    <div className="bg-gradient-to-br from-emerald-50/50 to-stone-50 min-h-screen py-12 px-4 sm:px-6 lg:px-8 relative">
+       {/* Sticky Back Button */}
+      <Link to="/shop" className="fixed top-24 left-4 z-40 inline-flex items-center justify-center p-3 bg-white/80 backdrop-blur-md rounded-full shadow-lg border border-stone-100 text-stone-600 hover:text-emerald-600 hover:scale-105 transition-all group">
+            <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" /> 
+      </Link>
 
+      <div className="max-w-7xl mx-auto">
         <div className="grid md:grid-cols-2 gap-12 bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-white/50 ring-1 ring-stone-900/5">
             {/* Image Section */}
             <div className="relative aspect-square rounded-2xl overflow-hidden bg-stone-100 shadow-inner group">
@@ -127,6 +128,14 @@ const ProductDetail = () => {
                                             <label>Brand</label>
                                             <input name="brand" value={editForm.brand} onChange={handleChange} className="border p-2 rounded" />
                                         </div>
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <label>Affiliate Link (Amazon)</label>
+                                        <input name="affiliate_link" value={editForm.affiliate_link || ''} onChange={handleChange} className="border p-2 rounded font-mono text-sm" placeholder="https://amazon.com/..." />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <label>Image URL</label>
+                                        <input name="image_url" value={editForm.image_url || ''} onChange={handleChange} className="border p-2 rounded font-mono text-sm" />
                                     </div>
                                 </div>
                                 <DialogFooter>
