@@ -28,11 +28,9 @@ const GuideDetail = () => {
   const [editForm, setEditForm] = useState({});
 
 useEffect(() => {
-  const run = async () => {
-    await fetchGuide();
-  };
-  run();
-}, [fetchGuide]);
+  const fetchGuide = async () => { ... };
+  fetchGuide();
+}, []);
 
   const fetchGuide = async () => {
     try {
