@@ -119,8 +119,6 @@ async def get_current_user(request: Request):
             session_token = auth_header.split(" ")[1]
     
     if not session_token:
-        # For public read access, we might return None, but for write access we need authentication
-        # Let's verify token strictly here.
         raise HTTPException(status_code=401, detail="Not authenticated")
 
     session = await db.user_sessions.find_one({"session_token": session_token})
@@ -155,7 +153,7 @@ async def get_optional_user(request: Request):
 async def root():
     return {"message": "SpringZen API is running"}
 
-# --- Auth Routes (Same as before) ---
+# --- Auth Routes ---
 @api_router.post("/auth/callback")
 async def auth_callback(request: Request, response: Response):
     data = await request.json()
@@ -182,15 +180,13 @@ async def auth_callback(request: Request, response: Response):
     
     if existing_user:
         user_id = existing_user["user_id"]
-        role = existing_user.get("role", "user") # Keep existing role
+        role = existing_user.get("role", "user") 
         await db.users.update_one(
             {"user_id": user_id},
             {"$set": {"name": name, "picture": picture}}
         )
     else:
         user_id = f"user_{uuid.uuid4().hex[:12]}"
-        
-        # Determine role: First user created is admin, others are users.
         count = await db.users.count_documents({})
         role = "admin" if count == 0 else "user" 
         
@@ -220,26 +216,43 @@ async def logout(response: Response, request: Request):
     response.delete_cookie(key="session_token")
     return response
 
-# --- CMS Routes (Modifying Articles/Products) ---
+# --- CMS Routes (Modifying/Adding Articles/Products) ---
+
+@api_router.post("/products")
+async def create_product(product: Product, user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can add products")
+    
+    await db.products.insert_one(product.model_dump())
+    return product
 
 @api_router.put("/products/{product_id}")
 async def update_product(product_id: str, payload: dict, user: User = Depends(get_current_user)):
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Only admins can modify products")
     
-    # Remove immutable fields if present
     payload.pop("id", None)
-    
-    result = await db.products.update_one(
-        {"id": product_id},
-        {"$set": payload}
-    )
-    
+    result = await db.products.update_one({"id": product_id}, {"$set": payload})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Product not found")
         
     updated_doc = await db.products.find_one({"id": product_id}, {"_id": 0})
     return updated_doc
+
+@api_router.post("/guides")
+async def create_guide(guide: Guide, user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can add guides")
+    
+    # Ensure datetime is serializable if created manually
+    if isinstance(guide.published_date, datetime):
+         pass # Pydantic handles this
+    
+    guide_dict = guide.model_dump()
+    guide_dict['published_date'] = guide_dict['published_date'].isoformat()
+    
+    await db.guides.insert_one(guide_dict)
+    return guide
 
 @api_router.put("/guides/{guide_id}")
 async def update_guide(guide_id: str, payload: dict, user: User = Depends(get_current_user)):
@@ -247,12 +260,7 @@ async def update_guide(guide_id: str, payload: dict, user: User = Depends(get_cu
         raise HTTPException(status_code=403, detail="Only admins can modify guides")
 
     payload.pop("id", None)
-    
-    result = await db.guides.update_one(
-        {"id": guide_id},
-        {"$set": payload}
-    )
-    
+    result = await db.guides.update_one({"id": guide_id}, {"$set": payload})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Guide not found")
         
@@ -266,12 +274,9 @@ async def subscribe(payload: dict):
     email = payload.get("email")
     if not email:
         raise HTTPException(status_code=400, detail="Missing email")
-    
-    # Check if already subscribed
     existing = await db.subscribers.find_one({"email": email})
     if existing:
         return {"message": "Already subscribed"}
-        
     new_sub = Subscriber(email=email)
     await db.subscribers.insert_one(new_sub.model_dump())
     return {"message": "Subscribed successfully"}
@@ -280,7 +285,6 @@ async def subscribe(payload: dict):
 async def get_subscribers(user: User = Depends(get_current_user)):
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
-    
     subs = await db.subscribers.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return subs
 
@@ -288,7 +292,6 @@ async def get_subscribers(user: User = Depends(get_current_user)):
 async def delete_subscriber(sub_id: str, user: User = Depends(get_current_user)):
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
-        
     await db.subscribers.delete_one({"id": sub_id})
     return {"message": "Deleted"}
 
@@ -328,10 +331,8 @@ async def get_stats():
 async def get_tasks(user: User = Depends(get_current_user)):
     global_tasks = await db.tasks.find({"is_global": True}, {"_id": 0}).to_list(1000)
     custom_tasks = await db.tasks.find({"is_global": False, "owner_id": user.user_id}, {"_id": 0}).to_list(1000)
-    
     user_statuses = await db.user_task_status.find({"user_id": user.user_id}, {"_id": 0}).to_list(1000)
     completed_ids = {s["task_id"] for s in user_statuses if s["is_completed"]}
-    
     result = []
     for t in global_tasks + custom_tasks:
         t_dict = dict(t)
@@ -344,14 +345,10 @@ async def toggle_task(payload: dict, user: User = Depends(get_current_user)):
     task_id = payload.get("task_id")
     if not task_id:
         raise HTTPException(status_code=400, detail="Missing task_id")
-    
     existing = await db.user_task_status.find_one({"user_id": user.user_id, "task_id": task_id})
     if existing:
         new_status = not existing["is_completed"]
-        await db.user_task_status.update_one(
-            {"user_id": user.user_id, "task_id": task_id},
-            {"$set": {"is_completed": new_status, "updated_at": datetime.now(timezone.utc)}}
-        )
+        await db.user_task_status.update_one({"user_id": user.user_id, "task_id": task_id}, {"$set": {"is_completed": new_status, "updated_at": datetime.now(timezone.utc)}})
         return {"task_id": task_id, "is_completed": new_status}
     else:
         new_status_doc = UserTaskStatus(user_id=user.user_id, task_id=task_id, is_completed=True)
@@ -364,12 +361,11 @@ async def add_custom_task(payload: dict, user: User = Depends(get_current_user))
     area = payload.get("area", "General")
     if not title:
         raise HTTPException(status_code=400, detail="Missing title")
-        
     new_task = Task(title=title, area=area, is_global=False, description="Personal task", owner_id=user.user_id)
     await db.tasks.insert_one(new_task.model_dump())
     return new_task
 
-# --- Seed Route (Massive Expansion) ---
+# --- Seed Route (MASSIVE EXPANSION) ---
 
 @api_router.post("/seed")
 async def seed_database():
@@ -385,210 +381,103 @@ async def seed_database():
         Task(title="Organize Pantry", description="Group items by category (grains, cans, spices). Use clear bins.", area="Kitchen", difficulty="Medium", estimated_time="1 hour"),
         Task(title="Degrease Range Hood", description="Soak filters in hot soapy water.", area="Kitchen", difficulty="Hard", estimated_time="30 mins"),
         Task(title="Clean Oven", description="Run self-clean cycle or use heavy-duty cleaner.", area="Kitchen", difficulty="Hard", estimated_time="2 hours"),
+        Task(title="Wipe Kitchen Cabinets", description="Clean exterior fronts and handles.", area="Kitchen", difficulty="Easy", estimated_time="20 mins"),
+        Task(title="Descale Kettle/Coffee Maker", description="Run a vinegar cycle to remove mineral buildup.", area="Kitchen", difficulty="Easy", estimated_time="15 mins"),
+
         Task(title="Declutter Wardrobe", description="KonMari method: Does it spark joy? Donate unused items.", area="Bedroom", difficulty="Hard", estimated_time="2 hours"),
         Task(title="Rotate Mattress", description="Rotate 180 degrees for even wear.", area="Bedroom", difficulty="Easy", estimated_time="15 mins"),
         Task(title="Wash Bedding & Pillows", description="Launder duvet covers, pillows, and mattress protectors.", area="Bedroom", difficulty="Medium", estimated_time="1.5 hours"),
+        Task(title="Vacuum Under Bed", description="Move the bed if possible to catch dust bunnies.", area="Bedroom", difficulty="Medium", estimated_time="20 mins"),
+
         Task(title="Clean Windows", description="Wash inside and out. Use squeegee for streak-free finish.", area="Living Room", difficulty="Medium", estimated_time="1 hour"),
         Task(title="Shampoo Carpets/Rugs", description="Deep clean to remove winter dust and allergens.", area="Living Room", difficulty="Hard", estimated_time="2 hours"),
         Task(title="Dust Ceiling Fans", description="Use a pillowcase to trap dust from blades.", area="Living Room", difficulty="Easy", estimated_time="20 mins"),
+        Task(title="Wipe Baseboards", description="Clean dust and scuffs from all baseboards.", area="Living Room", difficulty="Medium", estimated_time="30 mins"),
+
         Task(title="Scrub Grout", description="Use toothbrush and grout cleaner for tiles.", area="Bathroom", difficulty="Hard", estimated_time="1 hour"),
         Task(title="Organize Medicine Cabinet", description="Discard expired meds safely.", area="Bathroom", difficulty="Easy", estimated_time="30 mins"),
+        Task(title="Wash Shower Curtain", description="Launder or replace liner.", area="Bathroom", difficulty="Easy", estimated_time="15 mins"),
+        Task(title="Clean Exhaust Fan", description="Vacuum dust from the bathroom vent.", area="Bathroom", difficulty="Easy", estimated_time="10 mins"),
     ]
     await db.tasks.insert_many([t.model_dump() for t in tasks_data])
 
-    # 2. PRODUCTS (More Details)
+    # 2. PRODUCTS (Expanded Market Place)
     products_data = [
-        Product(
-            name="iRobot Roomba j8+", brand="iRobot", category="Cleaning", price_range="$$$",
-            description="Top-rated robot vacuum that empties itself.",
-            long_description="The Roomba j8+ is designed to handle homes with pets. It avoids obstacles like cords and pet waste, empties itself for up to 60 days, and maps your home for targeted cleaning.",
-            pros=["Self-emptying base", "Object avoidance", "Great for pet hair"],
-            cons=["Expensive", "Requires bag replacements for base"],
-            image_url="https://images.unsplash.com/photo-1518640467707-6811f4a6ab73?auto=format&fit=crop&q=80&w=1000",
-            affiliate_link="https://www.amazon.com/s?k=roomba+j8%2B"
-        ),
-        Product(
-            name="OXO Good Grips POP Containers", brand="OXO", category="Organization", price_range="$$",
-            description="Airtight, stackable, and space-efficient.",
-            long_description="These containers are the gold standard for pantry organization. The push-button mechanism creates an airtight seal with one touch, keeping dry foods fresh. The modular stacking system saves space.",
-            pros=["Airtight seal", "Dishwasher safe", "Stackable design"],
-            cons=["Can crack if dropped", "Pricey per unit"],
-            image_url="https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&q=80&w=1000",
-            affiliate_link="https://www.amazon.com/s?k=oxo+pop+containers"
-        ),
-        Product(
-            name="The Pink Stuff Paste", brand="Stardrops", category="Cleaning", price_range="$",
-            description="Viral multi-purpose cleaner paste.",
-            long_description="A tough cleaning paste that is gentle on surfaces but tough on stains. Ideal for cleaning saucepans, barbecues, ceramic tiles, glass, rust, sinks, uPVC, garden furniture, paintwork, boats, cookertops, copper and much more.",
-            pros=["Cheap", "Versatile", "Effective on tough stains"],
-            cons=["Can be abrasive on delicate surfaces", "Requires rinsing"],
-            image_url="https://images.unsplash.com/photo-1628177142898-93e36e4e3a50?auto=format&fit=crop&q=80&w=1000",
-            affiliate_link="https://www.amazon.com/s?k=the+pink+stuff"
-        ),
-        Product(
-            name="Dyson V15 Detect", brand="Dyson", category="Cleaning", price_range="$$$",
-            description="Cordless vacuum with laser dust detection.",
-            long_description="The Dyson V15 Detect features a laser that reveals microscopic dust on hard floors. It automatically adapts suction power based on floor type and dust volume. Up to 60 minutes of run time.",
-            pros=["Laser reveals hidden dust", "Powerful suction", "LCD screen stats"],
-            cons=["Very expensive", "Trigger must be held down"],
-            image_url="https://images.unsplash.com/photo-1558317374-a309d24467c3?auto=format&fit=crop&q=80&w=1000",
-            affiliate_link="https://www.amazon.com/s?k=dyson+v15"
-        ),
-        Product(
-            name="Method All-Purpose Cleaner", brand="Method", category="Cleaning", price_range="$",
-            description="Plant-based cleaner that smells great.",
-            long_description="This biodegradable formula cuts through grease and grime on most non-porous surfaces. It's cruelty-free and comes in bottles made from 100% recycled plastic.",
-            pros=["Eco-friendly", "Great scents", "Non-toxic"],
-            cons=["Not a disinfectant", "Less effective on heavy grease"],
-            image_url="https://images.unsplash.com/photo-1563453392212-326f5e854473?auto=format&fit=crop&q=80&w=1000",
-            affiliate_link="https://www.amazon.com/s?k=method+cleaner"
-        ),
-        Product(
-            name="Container Store Elfa System", brand="Elfa", category="Organization", price_range="$$$",
-            description="Customizable shelving and drawer system.",
-            long_description="Elfa is a completely customizable shelving and drawer system suitable for closets, pantries, offices, and garages. Known for its durability and flexibility.",
-            pros=["Highly customizable", "Durable steel construction", "10-year warranty"],
-            cons=["Requires installation", "Expensive"],
-            image_url="https://images.unsplash.com/photo-1595428774223-ef52624120d2?auto=format&fit=crop&q=80&w=1000",
-            affiliate_link="https://www.containerstore.com/s/elfa/1"
-        )
+        Product(name="iRobot Roomba j8+", brand="iRobot", category="Cleaning", price_range="$$$", description="Top-rated robot vacuum that empties itself.", 
+                long_description="The Roomba j8+ is designed to handle homes with pets. It avoids obstacles like cords and pet waste, empties itself for up to 60 days.", pros=["Self-emptying", "Smart Mapping"], cons=["Pricey"], image_url="https://images.unsplash.com/photo-1518640467707-6811f4a6ab73?auto=format&fit=crop&q=80&w=1000", affiliate_link="https://www.amazon.com/s?k=roomba+j8%2B"),
+        Product(name="OXO Good Grips POP Containers", brand="OXO", category="Organization", price_range="$$", description="Airtight, stackable, and space-efficient.", 
+                long_description="Gold standard for pantry organization. Push-button airtight seal.", pros=["Airtight", "Modular"], cons=["Brittle if dropped"], image_url="https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&q=80&w=1000", affiliate_link="https://www.amazon.com/s?k=oxo+pop"),
+        Product(name="The Pink Stuff Paste", brand="Stardrops", category="Cleaning", price_range="$", description="Viral multi-purpose cleaner paste.", 
+                long_description="Tough on stains, gentle on surfaces. Ideal for saucepans, barbecues, ceramic tiles.", pros=["Cheap", "Effective"], cons=["Abrasive"], image_url="https://images.unsplash.com/photo-1628177142898-93e36e4e3a50?auto=format&fit=crop&q=80&w=1000", affiliate_link="https://www.amazon.com/s?k=pink+stuff"),
+        Product(name="Dyson V15 Detect", brand="Dyson", category="Cleaning", price_range="$$$", description="Cordless vacuum with laser dust detection.", 
+                long_description="Features a laser that reveals microscopic dust on hard floors.", pros=["Powerful", "Laser detect"], cons=["Expensive"], image_url="https://images.unsplash.com/photo-1558317374-a309d24467c3?auto=format&fit=crop&q=80&w=1000", affiliate_link="https://www.amazon.com/s?k=dyson+v15"),
+        Product(name="Method All-Purpose Cleaner", brand="Method", category="Cleaning", price_range="$", description="Plant-based cleaner that smells great.", 
+                long_description="Biodegradable formula cuts through grease. Cruelty-free.", pros=["Eco-friendly", "Good scent"], cons=["Not disinfectant"], image_url="https://images.unsplash.com/photo-1563453392212-326f5e854473?auto=format&fit=crop&q=80&w=1000", affiliate_link="https://www.amazon.com/s?k=method+cleaner"),
+        Product(name="Elfa Drawer System", brand="Container Store", category="Organization", price_range="$$$", description="Customizable shelving and drawer system.", 
+                long_description="Completely customizable for closets, pantries, offices.", pros=["Customizable", "Durable"], cons=["Installation needed"], image_url="https://images.unsplash.com/photo-1595428774223-ef52624120d2?auto=format&fit=crop&q=80&w=1000", affiliate_link="https://www.containerstore.com/s/elfa/1"),
+        Product(name="Scrub Daddy Sponge", brand="Scrub Daddy", category="Cleaning", price_range="$", description="Texture changing sponge.", 
+                long_description="Soft in warm water, firm in cool water. Resists odors.", pros=["Versatile", "Durable"], cons=["None"], image_url="https://images.unsplash.com/photo-1628177142898-93e36e4e3a50?auto=format&fit=crop&q=80&w=1000", affiliate_link="https://www.amazon.com/s?k=scrub+daddy"),
+        Product(name="Bissell Little Green", brand="Bissell", category="Cleaning", price_range="$$", description="Portable carpet cleaner.", 
+                long_description="Removes spots and stains from carpets and upholstery.", pros=["Portable", "Effective"], cons=["Loud"], image_url="https://images.unsplash.com/photo-1558317374-a309d24467c3?auto=format&fit=crop&q=80&w=1000", affiliate_link="https://www.amazon.com/s?k=bissell+little+green"),
+        Product(name="Label Maker D30", brand="Phomemo", category="Organization", price_range="$", description="Bluetooth label printer.", 
+                long_description="Print labels from your phone. Inkless thermal printing.", pros=["Wireless", "No ink"], cons=["Small labels only"], image_url="https://images.unsplash.com/photo-1586769852044-692d6e3703f0?auto=format&fit=crop&q=80&w=1000", affiliate_link="https://www.amazon.com/s?k=phomemo+d30"),
+        Product(name="Under Bed Storage Bags", brand="Various", category="Organization", price_range="$", description="Large capacity fabric containers.", 
+                long_description="Store seasonal clothes and blankets dust-free.", pros=["Spacious", "Clear window"], cons=["Soft sides"], image_url="https://images.unsplash.com/photo-1595428774223-ef52624120d2?auto=format&fit=crop&q=80&w=1000", affiliate_link="https://www.amazon.com/s?k=under+bed+storage"),
+        Product(name="Microfiber Cloth Pack", brand="Amazon Basics", category="Cleaning", price_range="$", description="Non-abrasive cleaning cloths.", 
+                long_description="Cleans with or without chemical cleaners, leaves lint-free results.", pros=["Reusable", "Cheap"], cons=["Wash separately"], image_url="https://images.unsplash.com/photo-1517142089942-ba376ce32a2e?auto=format&fit=crop&q=80&w=1000", affiliate_link="https://www.amazon.com/s?k=microfiber+cloths"),
+        Product(name="Cable Management Box", brand="Various", category="Organization", price_range="$", description="Hides power strips and cords.", 
+                long_description="Keep cords organized and hidden. Safer for kids and pets.", pros=["Neat look", "Safety"], cons=["Plastic"], image_url="https://images.unsplash.com/photo-1586769852044-692d6e3703f0?auto=format&fit=crop&q=80&w=1000", affiliate_link="https://www.amazon.com/s?k=cable+management+box"),
     ]
     await db.products.insert_many([p.model_dump() for p in products_data])
 
-    # 3. GUIDES (More Detailed)
+    # 3. GUIDES (Expanded)
     guides_data = [
-        Guide(
-            title="The KonMari Method™ Explained", subtitle="Spark Joy in Your Home", category="Methodology",
-            content="""The KonMari Method™, created by Marie Kondo, is a way of life and a state of mind that encourages cherishing the things that spark joy in people's lives. 
-            
-**Key Principles:**
-1. **Commit yourself to tidying up.**
-2. **Imagine your ideal lifestyle.**
-3. **Finish discarding first.**
-4. **Tidy by category, not by location.**
-5. **Follow the right order:** Clothes, Books, Papers, Komono (Misc), Sentimental Items.
-6. **Ask yourself if it sparks joy.**
-
-Don't just tidy your room; change your life. This method isn't just about cleaning, it's about learning what you value.""",
-            image_url="https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&q=80&w=1000"
-        ),
-        Guide(
-            title="Swedish Death Cleaning (Döstädning)", subtitle="A Practical Approach to Decluttering", category="Methodology",
-            content="""Based on the book by Margareta Magnusson, Swedish Death Cleaning is a method of downsizing and organizing your possessions so that your loved ones won't be burdened by them after you pass away. But it's not morbid—it's liberating!
-
-**How to Start:**
-* **Start with the easy stuff:** Clothes, kitchenware, or the 'junk drawer'.
-* **Don't start with photos/letters:** You'll get stuck in memory lane.
-* **Ask:** "Will anyone I know be happier if I save this?"
-* **Gift things away now:** Give items to family members who actually want them while you're still here to see them enjoy it.
-
-It's about living a lighter, more organized life *now*.""",
-            image_url="https://images.unsplash.com/photo-1581578731117-104f8a3d46a8?auto=format&fit=crop&q=80&w=1000"
-        ),
-        Guide(
-            title="Ultimate Spring Cleaning Checklist 2025", subtitle="Room-by-Room Breakdown", category="Room-Specific",
-            content="""Follow this systematic approach to tackle your entire home without getting overwhelmed.
-
-**Kitchen:**
-* Deep clean fridge & freezer (toss expired).
-* Degrease cabinet fronts.
-* Clean oven and microwave.
-* Organize pantry.
-
-**Living Areas:**
-* Wash windows and treatments.
-* Steam clean upholstery.
-* Dust baseboards and crown molding.
-* Sanitize remotes and switches.
-
-**Bedrooms:**
-* Wash all bedding (including comforters).
-* Rotate mattress.
-* Switch seasonal wardrobe.
-* Vacuum under the bed.
-
-**Bathrooms:**
-* Scrub grout and tile.
-* Replace shower curtain liner.
-* Discard expired toiletries.
-* Clean exhaust fan.""",
-            image_url="https://images.unsplash.com/photo-1563453392212-326f5e854473?auto=format&fit=crop&q=80&w=1000"
-        ),
-        Guide(
-            title="Zone Cleaning: The FlyLady Method", subtitle="15 Minutes at a Time", category="Methodology",
-            content="""The FlyLady method focuses on building routines and tackling your home in 'zones' to avoid burnout. 
-
-**Core Concepts:**
-* **Shine Your Sink:** Start every day with a clean, shiny kitchen sink.
-* **15-Minute Dashes:** Set a timer and clean as much as you can. Stop when it rings.
-* **Zones:** Divide your home into 5 zones. Spend one week focusing deeply on one zone.
-    * Zone 1: Entrance/Dining Room
-    * Zone 2: Kitchen
-    * Zone 3: Main Bathroom/Another Room
-    * Zone 4: Master Bedroom
-    * Zone 5: Living Room
-
-This method is perfect for busy parents or those overwhelmed by mess.""",
-            image_url="https://images.unsplash.com/photo-1484154218962-a1c00207099b?auto=format&fit=crop&q=80&w=1000"
-        ),
-        Guide(
-            title="Digital Decluttering Guide", subtitle="Organize Your Virtual Life", category="Mental Health",
-            content="""Spring cleaning isn't just for physical spaces. Your digital life needs maintenance too.
-
-**The Checklist:**
-1. **Inbox Zero:** Unsubscribe from newsletters you don't read. Archive old emails.
-2. **Desktop Cleanup:** Move files into folders. Delete screenshots.
-3. **Phone Photos:** Delete duplicates and blurry shots. Back up to the cloud.
-4. **Apps:** Delete apps you haven't used in 3 months.
-5. **Passwords:** Update old passwords and enable 2FA using a password manager.
-
-A clean digital space reduces anxiety and improves productivity.""",
-            image_url="https://images.unsplash.com/photo-1586769852044-692d6e3703f0?auto=format&fit=crop&q=80&w=1000"
-        )
+        Guide(title="The KonMari Method™ Explained", subtitle="Spark Joy in Your Home", category="Methodology", content="Tidying by category, not location. Keep only what sparks joy.", image_url="https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&q=80&w=1000"),
+        Guide(title="Swedish Death Cleaning", subtitle="A Practical Approach", category="Methodology", content="Decluttering so others don't have to.", image_url="https://images.unsplash.com/photo-1581578731117-104f8a3d46a8?auto=format&fit=crop&q=80&w=1000"),
+        Guide(title="Spring Cleaning Checklist 2025", subtitle="Room-by-Room", category="Room-Specific", content="Systematic approach to deep cleaning.", image_url="https://images.unsplash.com/photo-1563453392212-326f5e854473?auto=format&fit=crop&q=80&w=1000"),
+        Guide(title="Zone Cleaning: FlyLady", subtitle="15 Minutes at a Time", category="Methodology", content="Avoid burnout by cleaning in zones.", image_url="https://images.unsplash.com/photo-1484154218962-a1c00207099b?auto=format&fit=crop&q=80&w=1000"),
+        Guide(title="Digital Decluttering", subtitle="Organize Virtual Life", category="Mental Health", content="Inbox zero and photo backup strategies.", image_url="https://images.unsplash.com/photo-1586769852044-692d6e3703f0?auto=format&fit=crop&q=80&w=1000"),
+        Guide(title="Pantry Organization 101", subtitle="Function over Form", category="Room-Specific", content="How to organize for efficiency, not just aesthetics.", image_url="https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&q=80&w=1000"),
+        Guide(title="Eco-Friendly Cleaning", subtitle="Green Solutions", category="Methodology", content="Vinegar, baking soda, and lemon juice hacks.", image_url="https://images.unsplash.com/photo-1517142089942-ba376ce32a2e?auto=format&fit=crop&q=80&w=1000"),
+        Guide(title="Capsule Wardrobe Guide", subtitle="Less is More", category="Methodology", content="Simplify your closet to 30 items or less.", image_url="https://images.unsplash.com/photo-1595428774223-ef52624120d2?auto=format&fit=crop&q=80&w=1000"),
     ]
+    
     guides_dicts = []
     for g in guides_data:
         d = g.model_dump()
         d['published_date'] = d['published_date'].isoformat()
         guides_dicts.append(d)
     await db.guides.insert_many(guides_dicts)
-
-    # 4. GLOSSARY (New)
+    
+    # 4. GLOSSARY (Preserved)
     glossary_data = [
-        GlossaryTerm(term="HEPA Filter", definition="High Efficiency Particulate Air filter. Traps 99.97% of dust, pollen, mold, bacteria, and any airborne particles with a size of 0.3 microns."),
-        GlossaryTerm(term="Decanting", definition="The process of removing food or supplies from original packaging and placing them into clear, matching containers to reduce visual clutter."),
-        GlossaryTerm(term="Zone Cleaning", definition="A cleaning method where you focus on one specific area (zone) of the house for a set period (e.g., a week) rather than trying to clean the whole house at once."),
-        GlossaryTerm(term="Microfiber", definition="Synthetic fiber finer than one denier or decitex/thread. Excellent for cleaning because it traps dirt and bacteria positively charged."),
-        GlossaryTerm(term="Swedish Death Cleaning", definition="A decluttering method focused on removing unnecessary items so loved ones don't have to deal with them after one passes away."),
-        GlossaryTerm(term="Minimalism", definition="A lifestyle of living with less. In organizing, it focuses on keeping only items that serve a purpose or bring joy."),
-        GlossaryTerm(term="Gray Water", definition="Gently used water from bathroom sinks, showers, tubs, and washing machines that can be reused for landscape irrigation."),
-        GlossaryTerm(term="Oeko-Tex", definition="A certification that ensures textiles are free from harmful substances."),
-        GlossaryTerm(term="Visual Clutter", definition="The mental load caused by seeing disorganized items, mismatched colors, or excessive objects in a space."),
+        GlossaryTerm(term="HEPA Filter", definition="High Efficiency Particulate Air filter."),
+        GlossaryTerm(term="Decanting", definition="Removing food from packaging into clear containers."),
+        GlossaryTerm(term="Zone Cleaning", definition="Focusing on one area at a time."),
+        GlossaryTerm(term="Microfiber", definition="Synthetic fiber excellent for cleaning."),
+        GlossaryTerm(term="Swedish Death Cleaning", definition="Decluttering for end-of-life preparation."),
+        GlossaryTerm(term="Minimalism", definition="Living with less."),
+        GlossaryTerm(term="Gray Water", definition="Reusing water for irrigation."),
+        GlossaryTerm(term="Oeko-Tex", definition="Textile safety certification."),
+        GlossaryTerm(term="Visual Clutter", definition="Mental load from disorganized visual fields."),
+        GlossaryTerm(term="Knolling", definition="Arranging related objects in parallel or 90-degree angles."),
     ]
     await db.glossary.insert_many([g.model_dump() for g in glossary_data])
 
-    # 5. STATISTICS (New)
+    # 5. STATS (Preserved)
     stats_data = [
-        Statistic(label="Americans who Spring Clean", value="80%", source="American Cleaning Institute (ACI)", year="2024", description="80% of Americans prefer spring cleaning to doing their taxes."),
-        Statistic(label="Global Organization Market", value="$13.13 Billion", source="Verified Market Research", year="2024", description="Expected to reach $17.67 Billion by 2032."),
-        Statistic(label="Decluttering Motivation", value="79%", source="Nextdoor Survey", year="2024", description="79% of people cite 'eliminating clutter/freeing up space' as their main motivation."),
-        Statistic(label="Mood Improvement", value="94%", source="Nextdoor Survey", year="2024", description="94% of people report being in a better mood after cleaning."),
-        Statistic(label="Market Growth (CAGR)", value="4.3%", source="Verified Market Research", year="2024-2032", description="Steady growth in the home organization sector."),
+        Statistic(label="Americans who Spring Clean", value="80%", source="ACI", year="2024"),
+        Statistic(label="Global Organization Market", value="$13.13 Billion", source="Verified Market Research", year="2024"),
+        Statistic(label="Decluttering Motivation", value="79%", source="Nextdoor", year="2024"),
+        Statistic(label="Mood Improvement", value="94%", source="Nextdoor", year="2024"),
+        Statistic(label="Market Growth (CAGR)", value="4.3%", source="Verified Market Research", year="2024-2032"),
     ]
     await db.stats.insert_many([s.model_dump() for s in stats_data])
 
-    return {"message": "Database seeded with rich, extensive content!"}
+    return {"message": "Database seeded with massive marketplace content!"}
 
 app.include_router(api_router)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
+app.add_middleware(CORSMiddleware, allow_credentials=True, allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','), allow_methods=["*"], allow_headers=["*"])
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
