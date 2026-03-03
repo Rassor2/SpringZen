@@ -27,23 +27,21 @@ const GuideDetail = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({});
 
-useEffect(() => {
-  const fetchGuide = async () => { ... };
-  fetchGuide();
-}, []);
-
-  const fetchGuide = async () => {
-    try {
-      const res = await axios.get(`${API}/guides/${id}`);
-      setGuide(res.data);
-      setEditForm(res.data);
-    } catch (error) {
-      console.error('Failed to fetch guide', error);
-      toast.error("Could not load article.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    const fetchGuide = async () => {
+        try {
+          const res = await axios.get(`${API}/guides/${id}`);
+          setGuide(res.data);
+          setEditForm(res.data);
+        } catch (error) {
+          console.error('Failed to fetch guide', error);
+          toast.error("Could not load article.");
+        } finally {
+          setLoading(false);
+        }
+    };
+    fetchGuide();
+  }, [id]);
 
   const handleUpdate = async () => {
     try {
@@ -140,6 +138,10 @@ useEffect(() => {
                                             <label>Author</label>
                                             <input name="author" value={editForm.author} onChange={handleChange} className="border p-2 rounded" />
                                         </div>
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <label>Image URL</label>
+                                        <input name="image_url" value={editForm.image_url} onChange={handleChange} className="border p-2 rounded font-mono text-sm" />
                                     </div>
                                     <div className="grid gap-2">
                                         <label>Content (Markdown supported)</label>
