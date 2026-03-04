@@ -1,17 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-import { useParams, Link } from 'react-router-dom';
-import { Loader2, ArrowLeft, Calendar, User, Tag, Edit } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter
-} from "@/components/ui/dialog"
-import { toast } from 'sonner';
+  DialogFooter,
+} from "@/components/ui/dialog";
+
+import { toast } from "sonner";
 import Markdown from 'react-markdown';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
