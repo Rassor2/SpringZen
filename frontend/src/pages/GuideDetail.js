@@ -7,8 +7,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
-import { toast } from "sonner";
-import {Markdown} from 'react-markdown';
+import { toast } from 'sonner';
+import Markdown from 'react-markdown';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -37,7 +37,7 @@ const GuideDetail = () => {
   };
 
   const handleChange = (e) => {
-    setEditForm({ ...editForm, [e.target.name]: e.target.value });
+    setEditForm({ editForm, [e.target.name]: e.target.value });
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-stone-50"><Loader2 className="animate-spin text-emerald-600" size={40} /></div>;
