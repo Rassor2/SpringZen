@@ -22,7 +22,7 @@ const GuideDetail = () => {
   // Edit State
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({});
-}, [id]; 
+}
   
   const handleUpdate = async () => {
     try {
