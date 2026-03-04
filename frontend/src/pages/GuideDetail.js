@@ -39,7 +39,7 @@ const GuideDetail = () => {
   const handleChange = (e) => {
     setEditForm({ editForm, [e.target.name]: e.target.value });
   };
-};
+
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-stone-50"><Loader2 className="animate-spin text-emerald-600" size={40} /></div>;
   if (!guide) return <div className="min-h-screen flex items-center justify-center bg-stone-50">Article not found.</div>;
 
