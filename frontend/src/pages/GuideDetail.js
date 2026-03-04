@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 
 import { toast } from "sonner";
-import Markdown from 'react-markdown';
+import {Markdown} from 'react-markdown';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
