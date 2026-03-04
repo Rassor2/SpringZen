@@ -27,25 +27,22 @@ const ProductDetail = () => {
   const [editForm, setEditForm] = useState({});
 
 useEffect(() => {
-  const run = async () => {
-    await fetchProduct();
-  };
-  run();
-}, [fetchProduct]);
-
-
   const fetchProduct = async () => {
     try {
       const res = await axios.get(`${API}/products/${id}`);
       setProduct(res.data);
       setEditForm(res.data);
     } catch (error) {
-      console.error('Failed to fetch product', error);
+      console.error("Failed to fetch product", error);
       toast.error("Could not load product details.");
     } finally {
       setLoading(false);
     }
   };
+
+  fetchProduct();
+}, [id]);
+
 
   const handleUpdate = async () => {
     try {
