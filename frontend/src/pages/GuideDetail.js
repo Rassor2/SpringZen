@@ -23,22 +23,8 @@ const GuideDetail = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({});
 
-  useEffect(() => {
-    const fetchGuide = async () => {
-        try {
-          const res = await axios.get(`${API}/guides/${id}`);
-          setGuide(res.data);
-          setEditForm(res.data);
-        } catch (error) {
-          console.error('Failed to fetch guide', error);
-          toast.error("Could not load article.");
-        } finally {
-          setLoading(false);
-        }
-    };
-    fetchGuide();
-  }, [id]);
-
+}, [id]); // ou [params.id] selon ton code
+  
   const handleUpdate = async () => {
     try {
       const res = await axios.put(`${API}/guides/${id}`, editForm, { withCredentials: true });
